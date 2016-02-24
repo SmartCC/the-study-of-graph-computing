@@ -26,10 +26,9 @@ object KNNRun {
     //KNN.knn(graph,50,10,50,0.005)
     KNN.knn(graph,args(1).toInt,args(2).toInt,args(3).toInt,args(4).toDouble).
       vertices.
-      join(id2Names).
-      map{case (tid,(cid,tagName)) => (cid,tid+":"+tagName)}.
+      map{case (tid,cid) => (cid,tid)}.
       groupByKey().
-      map(t=>{if(t._1==None) "未分类|"+t._2.mkString(",") else t._1.get+"|"+t._2.mkString(",")}).
+      map{case (cid,tid)=>{if(cid==None) "未分类|"+tid.mkString(",") else cid.get+"|"+tid.mkString(",")}}.
       foreach(println)
   }  
 }

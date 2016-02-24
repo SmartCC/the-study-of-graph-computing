@@ -29,14 +29,11 @@ object ItemCf{
   }
 
   //输入数据为(userId,itemId,score)
-  def computerSimilarMatrix(releations : RDD[(Long,Long,Double)]) : RDD[(Long,Long,Double)] ={
+  def computerSimilarMatrix(releations : RDD[(Long,Long,Double)]) : RDD[((Long,Long),Double)] ={
     //tag和name的对应关系
-    val vertices = releations.flatMap{(userId,itemId,score)=>Array((userId,"userId"),(itemId,"itemId"))}.distinct
+    val vertices = releations.flatMap{case (userId,itemId,score)=>Array((userId,"userId"),(itemId,"itemId"))}.distinct
     //user与item的定义关系
-    val edges = releations.distinct.map((userId,itemId,score)=>Edge(userId,itemId,score))
-
-    //构建连接，user->tag
-    val edges=releations.map(r => Edge(r._1, r._2, "u->t"))
+    val edges = releations.distinct.map{case (userId,itemId,score)=>Edge(userId,itemId,score)}
 
     //构建图
     /*节点数据样例为：
@@ -55,10 +52,10 @@ object ItemCf{
         //此处不用去重，因为前边已经去重，可以确定每两个点之间只有条边（且是单向的）
         //其他情况一定注意去重
         ctx.sendToDst(pow(ctx.attr,2))
-        ctx.sendToSrc(pow(ctx,attr,2))
+        ctx.sendToSrc(pow(ctx.attr,2))
       },
         (msg1,msg2) => msg1+msg2
-    ).map{case (id,val) => (id, sqrt(val))}
+    ).map{case (id,s) => (id, sqrt(s))}
 
     //计算商品相似度，用户相似度类似
     //数据样例[(7729932,List((17,0.3))),(37701526,List((94,0.9))),(82057467,List((17,0.4))),...],前面为id号，后边为收到的id号以及对应的边的分数
@@ -85,7 +82,7 @@ object ItemCf{
         if (ctx.srcAttr != None)
           ctx.sendToDst(
             ctx.srcAttr.get.
-              filter {case(id,_) id!=ctx.dstId}. //过滤掉与目标节点相同节点id
+              filter {case(id,_) => id!=ctx.dstId}. //过滤掉与目标节点相同节点id
               map{case (id,score) => (id,score*ctx.attr)})}, //发送边的值×原信息自带的值
       (msg1, msg2) => mergeWith((x: Double, y: Double) => x + y, msg1, msg2))
 
@@ -94,7 +91,7 @@ object ItemCf{
         flatMap{ case(id,(idScoreList,idScores)) =>
           (idScoreList.map(t => (t._1, t._2 /idScores)).map(t => (t._1, (id, t._2))))}. //第一次归一化，并使用flatMap展开
         join(verticesValue). //关联，为第二次归一化连接数据
-        map{case (itemId1,((itemId2,score)),id1Scores)=> ((itemId1,itemId2),score/id1Scores)}.   //第二次归一化 (94,(35,0.37))
+        map{case (itemId1,((itemId2,score),id1Scores))=> ((itemId1,itemId2),score/id1Scores)}.   //第二次归一化 (94,(35,0.37))
         sortBy(t => t._2, false)  //按降序排列
 
     similarMatrix
